@@ -1,14 +1,45 @@
-const CreateUserTable = "create table Users(id integer primary key AUTOINCREMENT,BookingUserName Text NOT NULL,Name Text NOT NULL,Age integer NOT NULL,Gender Text NOT NULL,Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,Status Text);";
-const CreateConfirmTable = "create table ConfirmTable(SeatNo integer,Id integer NOT NULL,SeatType Text);";
+class SqlQueries {
+  static CreateUserTable =
+    "create table Users(Id integer primary key AUTOINCREMENT,BookingUserName Text NOT NULL,Name Text NOT NULL,Age integer NOT NULL,Gender Text NOT NULL,Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,Status Text);";
+  static CreateConfirmTable =
+    "create table ConfirmTable(SeatNo integer primary key AUTOINCREMENT,Id integer NOT NULL,SeatType Text);";
+  static CreateRacTable =
+    "create table RacTable(RacId integer primary key AUTOINCREMENT,SeatNo integer,Id integer NOT NULL);";
+  static CreateWaitingTable =
+    "create table WaitingTable(RacId integer primary key AUTOINCREMENT,SeatNo integer,Id integer NOT NULL);";
 
+  static CountOfRow(tableName) {
+    return `select COUNT(*) as count from ${tableName};`;
+  }
 
-const CreateUserInTable=(bookingUserName,name,age,gender)=>
-{
-    return `insert into Users(BookingUserName,Name,Age,Gender) Values ("${bookingUserName}","${name}",${age},"${gender}");`;
-};
+  static async CreateTables(db) {
+    try {
+      const tables = [
+        SqlQueries.CreateConfirmTable,
+        SqlQueries.CreateUserTable,
+        SqlQueries.CreateRacTable,
+        SqlQueries.CreateWaitingTable,
+      ];
+      for (const tableSql of tables) {
+        await db.exec(tableSql);
+      }
+    } catch (e) {
+      console.warn("Error in creating tables", e);
+    }
+  }
 
+  static CreateUserInTable = `insert into Users(BookingUserName,Name,Age,Gender) Values (?,?,?,?);`;
 
-export {
-    CreateUserTable,CreateUserInTable,
-    CreateConfirmTable,
-};
+  static CreateConfirmationTicketTable = (id, seatType) => {
+    return `insert into ConfirmTable(Id,SeatType) Values ("${id}","${seatType}");`;
+  };
+}
+
+class Tables {
+  static Users = "Users";
+  static ConfirmTable = "ConfirmTable";
+  static RacTable = "RacTable";
+  static WaitingTable = "WaitingTable";
+}
+
+export { SqlQueries, Tables };
