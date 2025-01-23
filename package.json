@@ -1,0 +1,21 @@
+{
+  "name": "railway-reservation-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "node --watch --watch-preserve-output index"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^4.21.2",
+    "sql-sanitizer": "^1.0.0",
+    "sqlite3": "^5.1.7",
+    "yup": "^1.6.1"
+  }
+}
