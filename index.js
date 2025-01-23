@@ -1,8 +1,8 @@
 import express from "express";
-import sqlite3 from "sqlite3";
+import sqlite from "better-sqlite3";
 import { existsSync } from "node:fs";
 import { SqlQueries, Tables } from "./sqlQueries.js";
-
+import { DbService } from "./dbService.js";
 import { BookingUserValidationSchema } from "./validationSchema.js";
 import sqlSanitizer from "sql-sanitizer";
 
@@ -17,7 +17,8 @@ let app = express();
 app.use(sqlSanitizer);
 app.use(express.json());
 
-const db = new sqlite3.Database(DB_FILE);
+const db = sqlite(DB_FILE);
+const dbService = new DbService(db);
 
 await setupDbTables();
 
@@ -39,69 +40,42 @@ app.post(`${API_ROUTE}/book`, async (req, res) => {
         SqlQueries.CountOfRow(Tables.RacTable)
       );
       let waitingTicketCount = await getCountFromDb(
-        SqlQueries.CountOfRow(Tables.RacTable)
+        SqlQueries.CountOfRow(Tables.WaitingTable)
       );
 
       // if confirmation ticket count is more than 63 and rac ticket count is more than 18
       // and waiting ticket count is more than 10 then user can't book
       if (
-        confirmationTicketCount > 63 &&
-        racTicketCount > 18 &&
-        waitingTicketCount > 10
+        confirmationTicketCount >= 63 &&
+        racTicketCount >= 18 &&
+        waitingTicketCount >= 10
       ) {
         res.status(400);
         res.send("No tickets available");
         return;
       }
 
-      await db.exec("begin");
+      let result = {};
 
-      await db.run(
-        SqlQueries.CreateUserInTable,
-        [
-          req.body.bookingUserName,
-          req.body.name,
-          req.body.age,
-          req.body.gender,
-        ],
-        async function (err, row) {
-          if (err) throw "can't add user";
+      //create a transaction
+      let transaction = db.transaction(async () => {
+        result = await createUserDetails(
+          req,
+          waitingTicketCount,
+          racTicketCount,
+          confirmationTicketCount
+        );
+      });
 
-          const isWomenWithChildren =
-            req.body.gender == "female" && req.body.children.length > 0;
+      await transaction();
 
-          let param = {
-            waitingTicketCount,
-            racTicketCount,
-            confirmationTicketCount,
-            gender: req.body.gender,
-            age: req.body.age,
-            isWomenWithChildren,
-            bookingForID: this.lastID,
-          };
-
-          await handleBooking(param);
-        }
-      );
-
-      for (const child of req.body.children) {
-        await db.run(SqlQueries.CreateUserInTable, [
-          req.body.bookingUserName,
-          child.name,
-          child.age,
-          child.gender,
-        ]);
-      }
-
-      await db.exec("commit");
-
-      const isWomenWithChildren =
-        req.body.gender == "female" && req.body.children.length > 0;
-
-      res.send("ticked booked");
+      res.send({
+        status: "success",
+        message: "Ticket booked successfully",
+        ...result
+      });
     } catch (e) {
       console.warn(e);
-      await db.exec("rollback");
       res.send("failed to book ticket at this moment");
     }
   }
@@ -113,37 +87,83 @@ app.listen(PORT, (err) => {
   console.log("Server listening on PORT", PORT);
 });
 
-async function handleBooking(param) {
-  if (param.confirmationTicketCount < 63) {
-    await db.run(SqlQueries.CreateConfirmationTicketValueTable, [
-        param.bookingForID,
-        await getSeatType(param,param.isWomenWithChildren || param.age > 60),
-      ]);
-  }
-  else if(param.racTicketCount < 18)
-  {
-    await db.run(SqlQueries.CreateRacTicketValueTable, [
-      param.bookingForID,
-      await getSeatType(param),
+async function createUserDetails(
+  req,
+  waitingTicketCount,
+  racTicketCount,
+  confirmationTicketCount
+) {
+  const isWomenWithChildren =
+    req.body.gender == "female" && req.body.children.length > 0;
+
+  let bookingUser = await db
+    .prepare(SqlQueries.CreateUserInTable)
+    .run([
+      req.body.bookingUserName,
+      req.body.name,
+      req.body.age,
+      req.body.gender,
     ]);
+
+  for (const child of req.body.children) {
+    await await db
+      .prepare(SqlQueries.CreateUserInTable)
+      .run([req.body.bookingUserName, child.name, child.age, child.gender]);
   }
+
+  let param = {
+    waitingTicketCount,
+    racTicketCount,
+    confirmationTicketCount,
+    gender: req.body.gender,
+    age: req.body.age,
+    isWomenWithChildren,
+    bookingForID: bookingUser.lastInsertRowid,
+  };
+
+  return await handleBooking(param);
+}
+
+async function handleBooking(param) {
+    let type = "";
+    let seatType = "";
+
+  if (param.confirmationTicketCount < 63) {
+    await db
+      .prepare(SqlQueries.CreateConfirmationTicketValueTable)
+      .run([
+        param.bookingForID,
+        seatType=await getSeatType(param, param.isWomenWithChildren || param.age > 60),
+      ]);
+      type = "confirmation";
+  } else if (param.racTicketCount < 18) {
+    await db
+      .prepare(SqlQueries.CreateRacTicketValueTable)
+      .run([param.bookingForID]);
+      type = "rac";
+      seatType = "sideLower";
+  } else {
+    await db
+      .prepare(SqlQueries.CreateWaitingTicketValueTable)
+      .run([param.bookingForID]);
+        type = "waiting";
+        seatType="NA";
+  }
+
+  return {userId: param.bookingForID, type,seatType};
 }
 
 async function getSeatType(param, oldPriority = false) {
   let lower = await getCountFromDb(
-    db,
     SqlQueries.CountOfConfirmedSeatType("lower")
   );
   let upper = await getCountFromDb(
-    db,
     SqlQueries.CountOfConfirmedSeatType("upper")
   );
   let middle = await getCountFromDb(
-    db,
     SqlQueries.CountOfConfirmedSeatType("middle")
   );
   let sideUpper = await getCountFromDb(
-    db,
     SqlQueries.CountOfConfirmedSeatType("sideUpper")
   );
 
@@ -151,8 +171,8 @@ async function getSeatType(param, oldPriority = false) {
   if (lower < 18 && oldPriority) return "lower";
   else if (middle < 18) return "middle";
   else if (upper < 18) return "upper";
-  else if(sideUpper < 18) return "sideUpper";
-  return "waiting";
+  else if (sideUpper < 9) return "sideUpper";
+  return "lower";
 }
 
 //db.close();
@@ -174,25 +194,28 @@ async function validateBodyAsync(schema, value, res) {
   }
 }
 
-async function readRowsFromDb(db, query) {
-  try {
-    let result = [];
-    await db.all(query, (err, row) => {
-      result.push(row);
-    });
-  } catch (e) {
-    return [];
-  }
+function readRowsFromDb(query) {
+  return new Promise((resolve, reject) => {
+    try {
+      let result = [];
+      db.all(query, (err, rows) => {
+        if (err) {
+          return reject(err);
+        }
+        result = rows;
+        resolve(result);
+      });
+    } catch (e) {
+      reject(e); // In case of unexpected errors
+    }
+  });
 }
 
-async function getCountFromDb(db, query) {
+async function getCountFromDb(query) {
   try {
-    let result = 0;
-    await db.get(query, [], (err, row) => {
-      result = row.count;
-    });
-    return result;
+    return await db.prepare(query).get().count;
   } catch (e) {
+    console.warn("Error in getting count", e);
     return 0;
   }
 }

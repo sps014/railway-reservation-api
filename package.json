@@ -13,9 +13,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "better-sqlite3": "^11.8.1",
     "express": "^4.21.2",
     "sql-sanitizer": "^1.0.0",
-    "sqlite3": "^5.1.7",
     "yup": "^1.6.1"
   }
 }

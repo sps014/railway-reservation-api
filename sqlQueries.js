@@ -1,19 +1,19 @@
 class SqlQueries {
   static CreateUserTable =
-    "create table Users(Id integer primary key AUTOINCREMENT,BookingUserName Text NOT NULL,Name Text NOT NULL,Age integer NOT NULL,Gender Text NOT NULL,Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,Status Text);";
+    "create table Users(UserId integer primary key AUTOINCREMENT,BookingUserName Text NOT NULL,Name Text NOT NULL,Age integer NOT NULL,Gender Text NOT NULL,Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,Status Text);";
   static CreateConfirmTable =
-    "create table ConfirmTable(SeatNo integer primary key AUTOINCREMENT,Id integer NOT NULL,SeatType Text);";
+    "create table ConfirmTable(ConformationId integer primary key AUTOINCREMENT,UserId integer NOT NULL,SeatType Text);";
   static CreateRacTable =
-    "create table RacTable(RacId integer primary key AUTOINCREMENT,SeatNo integer,Id integer NOT NULL);";
+    "create table RacTable(RacId integer primary key AUTOINCREMENT,UserId integer NOT NULL);";
   static CreateWaitingTable =
-    "create table WaitingTable(WaitingId integer primary key AUTOINCREMENT,SeatNo integer,Id integer NOT NULL);";
+    "create table WaitingTable(WaitingId integer primary key AUTOINCREMENT,UserId integer NOT NULL);";
 
   static CountOfRow(tableName) {
     return `select COUNT(*) as count from ${tableName};`;
   }
 
   static CountOfConfirmedSeatType(type) {
-    return `select COUNT(*) as count from ${Tables.ConfirmTable} where SeatType="${type}";`;
+    return `select COUNT(*) as count from ${Tables.ConfirmTable} where SeatType='${type}';`;
   }
 
   static async CreateTables(db) {
@@ -33,9 +33,9 @@ class SqlQueries {
   }
 
   static CreateUserInTable = `insert into Users(BookingUserName,Name,Age,Gender) Values (?,?,?,?);`;
-  static CreateConfirmationTicketValueTable =`insert into ConfirmTable(Id,SeatType) Values (?,?);`;
-  static CreateRacTicketValueTable =`insert into RacTable(Id,SeatType) Values (?,?);`;
-
+  static CreateConfirmationTicketValueTable =`insert into ConfirmTable(UserId,SeatType) Values (?,?);`;
+  static CreateRacTicketValueTable =`insert into RacTable(UserId) Values (?);`;
+  static CreateWaitingTicketValueTable= `insert into WaitingTable(UserId) Values (?);`;
 }
 
 class Tables {
