@@ -6,10 +6,14 @@ class SqlQueries {
   static CreateRacTable =
     "create table RacTable(RacId integer primary key AUTOINCREMENT,SeatNo integer,Id integer NOT NULL);";
   static CreateWaitingTable =
-    "create table WaitingTable(RacId integer primary key AUTOINCREMENT,SeatNo integer,Id integer NOT NULL);";
+    "create table WaitingTable(WaitingId integer primary key AUTOINCREMENT,SeatNo integer,Id integer NOT NULL);";
 
   static CountOfRow(tableName) {
     return `select COUNT(*) as count from ${tableName};`;
+  }
+
+  static CountOfConfirmedSeatType(type) {
+    return `select COUNT(*) as count from ${Tables.ConfirmTable} where SeatType="${type}";`;
   }
 
   static async CreateTables(db) {
@@ -29,10 +33,9 @@ class SqlQueries {
   }
 
   static CreateUserInTable = `insert into Users(BookingUserName,Name,Age,Gender) Values (?,?,?,?);`;
+  static CreateConfirmationTicketValueTable =`insert into ConfirmTable(Id,SeatType) Values (?,?);`;
+  static CreateRacTicketValueTable =`insert into RacTable(Id,SeatType) Values (?,?);`;
 
-  static CreateConfirmationTicketTable = (id, seatType) => {
-    return `insert into ConfirmTable(Id,SeatType) Values ("${id}","${seatType}");`;
-  };
 }
 
 class Tables {

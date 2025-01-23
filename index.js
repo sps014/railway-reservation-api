@@ -56,7 +56,6 @@ app.post(`${API_ROUTE}/book`, async (req, res) => {
 
       await db.exec("begin");
 
-      let lastId = {};
       await db.run(
         SqlQueries.CreateUserInTable,
         [
@@ -65,38 +64,39 @@ app.post(`${API_ROUTE}/book`, async (req, res) => {
           req.body.age,
           req.body.gender,
         ],
-        function(err, row){
+        async function (err, row) {
           if (err) throw "can't add user";
-          lastId = this.lastID;
-          console.log(lastId);
+
+          const isWomenWithChildren =
+            req.body.gender == "female" && req.body.children.length > 0;
+
+          let param = {
+            waitingTicketCount,
+            racTicketCount,
+            confirmationTicketCount,
+            gender: req.body.gender,
+            age: req.body.age,
+            isWomenWithChildren,
+            bookingForID: this.lastID,
+          };
+
+          await handleBooking(param);
         }
       );
 
       for (const child of req.body.children) {
-        await db.run(
-          SqlQueries.CreateUserInTable,[req.body.bookingUserName,
-            child.name,
-            child.age,
-            child.gender]
-        );
+        await db.run(SqlQueries.CreateUserInTable, [
+          req.body.bookingUserName,
+          child.name,
+          child.age,
+          child.gender,
+        ]);
       }
 
       await db.exec("commit");
 
       const isWomenWithChildren =
         req.body.gender == "female" && req.body.children.length > 0;
-
-      let param = {
-        waitingTicketCount,
-        racTicketCount,
-        confirmationTicketCount,
-        gender: req.body.gender,
-        age: req.body.age,
-        isWomenWithChildren,
-        bookingForID: lastId,
-      };
-
-      handleBooking(param);
 
       res.send("ticked booked");
     } catch (e) {
@@ -105,8 +105,6 @@ app.post(`${API_ROUTE}/book`, async (req, res) => {
       res.send("failed to book ticket at this moment");
     }
   }
-
-  //booking huyi ya nahi
 });
 
 app.listen(PORT, (err) => {
@@ -115,13 +113,46 @@ app.listen(PORT, (err) => {
   console.log("Server listening on PORT", PORT);
 });
 
-function handleBooking(param) {
+async function handleBooking(param) {
   if (param.confirmationTicketCount < 63) {
-    if (param.isWomenWithChildren || param.age > 60) {
-      //book ticket in confirmation on lower seat
-      SqlQueries.CreateConfirmationTicketTable();
-    }
+    await db.run(SqlQueries.CreateConfirmationTicketValueTable, [
+        param.bookingForID,
+        await getSeatType(param,param.isWomenWithChildren || param.age > 60),
+      ]);
   }
+  else if(param.racTicketCount < 18)
+  {
+    await db.run(SqlQueries.CreateRacTicketValueTable, [
+      param.bookingForID,
+      await getSeatType(param),
+    ]);
+  }
+}
+
+async function getSeatType(param, oldPriority = false) {
+  let lower = await getCountFromDb(
+    db,
+    SqlQueries.CountOfConfirmedSeatType("lower")
+  );
+  let upper = await getCountFromDb(
+    db,
+    SqlQueries.CountOfConfirmedSeatType("upper")
+  );
+  let middle = await getCountFromDb(
+    db,
+    SqlQueries.CountOfConfirmedSeatType("middle")
+  );
+  let sideUpper = await getCountFromDb(
+    db,
+    SqlQueries.CountOfConfirmedSeatType("sideUpper")
+  );
+
+  //allocate to oldProirity lower seats if they are less than 18,
+  if (lower < 18 && oldPriority) return "lower";
+  else if (middle < 18) return "middle";
+  else if (upper < 18) return "upper";
+  else if(sideUpper < 18) return "sideUpper";
+  return "waiting";
 }
 
 //db.close();
