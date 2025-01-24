@@ -22,6 +22,9 @@ FROM Tickets
 LEFT JOIN Children ON Tickets.TicketId = Children.TicketId
 GROUP BY Tickets.TicketId;`;
 
+  static CreateTicketInTable = `insert into Tickets(TicketId,Name,Age,Gender) Values (?,?,?,?);`;
+  static CreateChildrenInTable = `insert into Children(Id,Name,Age,TicketId) Values (?,?,?,?);`;
+
   static CountOfRow = `select COUNT(*) as count from TICKETS;`;
 
   static UserAlreadyBookedWithName(userName) {
@@ -40,6 +43,10 @@ GROUP BY Tickets.TicketId;`;
   }
   static DeleteTicketById(ticketId) {
     return `delete from Tickets where TicketId='${ticketId}';`;
+  }
+
+  static DeleteChildrenByTicketId(ticketId) {
+    return `delete from Children where TicketId='${ticketId}';`;
   }
 
   static CountOfConfirmedSeatType(type) {
@@ -62,9 +69,6 @@ GROUP BY Tickets.TicketId;`;
       console.warn("Error in creating tables", e);
     }
   }
-
-  static CreateTicketInTable = `insert into Tickets(TicketId,Name,Age,Gender) Values (?,?,?,?);`;
-  static CreateChildrenInTable = `insert into Children(Id,Name,Age,TicketId) Values (?,?,?,?);`;
 }
 
 export { SqlQueries };
