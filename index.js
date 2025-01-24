@@ -5,6 +5,7 @@ import { SqlQueries, Tables } from "./sqlQueries.js";
 import { DbService } from "./dbService.js";
 import { BookingUserValidationSchema } from "./validationSchema.js";
 import sqlSanitizer from "sql-sanitizer";
+import {randomUUID} from 'node:crypto';
 
 const PORT = 7912;
 const DB_FILE = "database.sqlite";
@@ -28,13 +29,29 @@ app.get(`${API_ROUTE}/`, async (req, res) => {
   res.end();
 });
 
+app.post(`${API_ROUTE}/cancel/:ticketId`, async (req, res) => 
+{
+    let ticketId = req.params.ticketId;
+    let userAlreadyBooked = await getCountFromDb(SqlQueries.UserAlreadyBookedWithId(ticketId));
+    res.send(userAlreadyBooked>0);
+});
+
 app.post(`${API_ROUTE}/book`, async (req, res) => {
   //Validation
 
   if (await validateBodyAsync(BookingUserValidationSchema, req.body, res)) {
     try {
+
+        //if user already booked a ticket then return error
+        let userAlreadyBooked = await getCountFromDb(SqlQueries.UserAlreadyBooked(req.body.bookingUserName));
+        if(userAlreadyBooked>0){
+         res.status(400);
+         res.send("user Already booked a ticket");
+         return;
+        }
+
       let confirmationTicketCount = await getCountFromDb(
-        SqlQueries.CountOfRow(Tables.ConfirmTable)
+        SqlQueries.CountOfBookedUsers
       );
       let racTicketCount = await getCountFromDb(
         SqlQueries.CountOfRow(Tables.RacTable)
@@ -96,20 +113,22 @@ async function createUserDetails(
   const isWomenWithChildren =
     req.body.gender == "female" && req.body.children.length > 0;
 
-  let bookingUser = await db
+    let userId = randomUUID();
+   await db
     .prepare(SqlQueries.CreateUserInTable)
     .run([
+      userId,
       req.body.bookingUserName,
       req.body.name,
       req.body.age,
-      req.body.gender,
+      req.body.gender
     ]);
 
-  for (const child of req.body.children) {
-    await await db
-      .prepare(SqlQueries.CreateUserInTable)
-      .run([req.body.bookingUserName, child.name, child.age, child.gender]);
-  }
+//   for (const child of req.body.children) {
+//     await await db
+//       .prepare(SqlQueries.CreateUserInTable)
+//       .run([randomUUID(),req.body.bookingUserName, child.name, child.age, child.gender,"yes"]);
+//   }
 
   let param = {
     waitingTicketCount,
@@ -118,7 +137,7 @@ async function createUserDetails(
     gender: req.body.gender,
     age: req.body.age,
     isWomenWithChildren,
-    bookingForID: bookingUser.lastInsertRowid,
+    bookingForID: userId,
   };
 
   return await handleBooking(param);
@@ -132,23 +151,27 @@ async function handleBooking(param) {
     await db
       .prepare(SqlQueries.CreateConfirmationTicketValueTable)
       .run([
+        randomUUID(),
         param.bookingForID,
         seatType=await getSeatType(param, param.isWomenWithChildren || param.age > 60),
       ]);
-      type = "confirmation";
+      type = "CNF";
   } else if (param.racTicketCount < 18) {
     await db
       .prepare(SqlQueries.CreateRacTicketValueTable)
-      .run([param.bookingForID]);
-      type = "rac";
+      .run([randomUUID(),param.bookingForID]);
+      type = "RAC";
       seatType = "sideLower";
   } else {
     await db
       .prepare(SqlQueries.CreateWaitingTicketValueTable)
-      .run([param.bookingForID]);
-        type = "waiting";
+      .run([randomUUID(),param.bookingForID]);
+        type = "WAIT";
         seatType="NA";
   }
+
+  await db.prepare(SqlQueries.UpdateUserStatus(param.bookingForID, type))
+  .run();
 
   return {userId: param.bookingForID, type,seatType};
 }

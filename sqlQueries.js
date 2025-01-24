@@ -1,19 +1,33 @@
 class SqlQueries {
   static CreateUserTable =
-    "create table Users(UserId integer primary key AUTOINCREMENT,BookingUserName Text NOT NULL,Name Text NOT NULL,Age integer NOT NULL,Gender Text NOT NULL,Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,Status Text);";
+    "create table Users(UserId TEXT primary key,BookingUserName TEXT NOT NULL,Name TEXT NOT NULL,Age integer NOT NULL,Gender Text NOT NULL,Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,Status Text);";
   static CreateConfirmTable =
-    "create table ConfirmTable(ConformationId integer primary key AUTOINCREMENT,UserId integer NOT NULL,SeatType Text);";
+    "create table ConfirmTable(ConformationId TEXT primary key,UserId integer NOT NULL,SeatType Text);";
   static CreateRacTable =
-    "create table RacTable(RacId integer primary key AUTOINCREMENT,UserId integer NOT NULL);";
+    "create table RacTable(RacId TEXT primary key,UserId integer NOT NULL);";
   static CreateWaitingTable =
-    "create table WaitingTable(WaitingId integer primary key AUTOINCREMENT,UserId integer NOT NULL);";
+    "create table WaitingTable(WaitingId TEXT primary key,UserId integer NOT NULL);";
 
   static CountOfRow(tableName) {
     return `select COUNT(*) as count from ${tableName};`;
   }
 
+  static CountOfBookedUsers="select Count(distinct `BookingUserName`) as count from Users";
+  
+  static UserAlreadyBooked(userName) {
+    return `select Count(*) as count from Users where BookingUserName='${userName}';`;
+  }
+  static UserAlreadyBookedWithId(ticketId) {
+    return `select Count(*) as count from Users where UserId='${ticketId}';`;
+  }
+
   static CountOfConfirmedSeatType(type) {
     return `select COUNT(*) as count from ${Tables.ConfirmTable} where SeatType='${type}';`;
+  }
+
+  static UpdateUserStatus(userId, status)
+  {
+    return `update Users set Status='${status}' where UserId='${userId}';`;
   }
 
   static async CreateTables(db) {
@@ -32,10 +46,10 @@ class SqlQueries {
     }
   }
 
-  static CreateUserInTable = `insert into Users(BookingUserName,Name,Age,Gender) Values (?,?,?,?);`;
-  static CreateConfirmationTicketValueTable =`insert into ConfirmTable(UserId,SeatType) Values (?,?);`;
-  static CreateRacTicketValueTable =`insert into RacTable(UserId) Values (?);`;
-  static CreateWaitingTicketValueTable= `insert into WaitingTable(UserId) Values (?);`;
+  static CreateUserInTable = `insert into Users(UserId,BookingUserName,Name,Age,Gender) Values (?,?,?,?,?);`;
+  static CreateConfirmationTicketValueTable =`insert into ConfirmTable(ConformationId,UserId,SeatType) Values (?,?,?);`;
+  static CreateRacTicketValueTable =`insert into RacTable(RacId,UserId) Values (?,?);`;
+  static CreateWaitingTicketValueTable= `insert into WaitingTable(WaitingId,UserId) Values (?,?);`;
 }
 
 class Tables {
