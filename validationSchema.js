@@ -14,7 +14,6 @@ const BookingUserValidationSchema = object(
             {
                 name:nameValidatorRule,
                 age: ageValidatorRule.max(5),
-                gender: genderValidator,
             }
           )
         )
