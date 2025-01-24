@@ -8,7 +8,7 @@ import { BookedTicketController } from "./routes/v1/tickets/booked.js";
 import { CancelTicketControler } from "./routes/v1/tickets/cancel.js";
 import { BookTicketController } from "./routes/v1/tickets/book.js";
 
-const PORT = 7912;
+const PORT = 4000;
 const DB_FILE = "database.sqlite";
 const API_ROUTE = "/api/v1/tickets";
 

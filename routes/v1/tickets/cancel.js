@@ -3,13 +3,6 @@ import { DbService } from "../../../dbService.js";
 
 /**
  * Controller function to handle ticket cancellation.
- *
- * @param {Object} req - The request object.
- * @param {Object} req.params - The parameters from the request.
- * @param {string} req.params.ticketId - The ID of the ticket to be cancelled.
- * @param {Object} res - The response object.
- *
- * @returns {Promise<void>} - A promise that resolves when the ticket cancellation is complete.
  */
 
 async function CancelTicketControler(req, res) {
@@ -79,6 +72,5 @@ async function moveUserToStatus(fromStatus, toStatus, seatType) {
     );
   }
 }
-
 
 export { CancelTicketControler };
