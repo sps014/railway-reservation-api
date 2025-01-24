@@ -41,24 +41,34 @@ app.post(`${API_ROUTE}/cancel/:ticketId`, async (req, res) =>
         return;
     }
 
-    await db.transaction(async () =>
+    let transaction = await db.transaction(async () =>
     {
-
-        //if user was in waiting table then delete his data from waiting table
-        if(user.Status=="WAIT")
-        {
-            await db.prepare(SqlQueries.DeleteUserById(ticketId)).run();
-            await db.prepare(SqlQueries.DeleteTicket(Tables.WaitingTable,ticketId)).run();
-        }
-
-
-
+        await db.prepare(SqlQueries.DeleteTicketById(ticketId)).run();
+        processUserStatus(user);
     });
 
-    
-    console.log(userAlreadyBooked);
-    res.send(userAlreadyBooked!=null);
+    await transaction();
+
+    res.send("Ticket cancelled successfully");
+    res.end();
+
 });
+
+async function processUserStatus(user) {
+    if (user.Status === "RAC") {
+        await moveUserToStatus("WAIT", "RAC", "sideLower");
+    } else if (user.Status === "CNF") {
+        await moveUserToStatus("RAC", "CNF", user.SeatType);
+        await moveUserToStatus("WAIT", "RAC", "sideLower");
+    }
+}
+
+async function moveUserToStatus(fromStatus, toStatus, seatType) {
+    let user = await readRowFromDb(SqlQueries.GetOldestTicketIn(fromStatus));
+    if (user) {
+        await db.prepare(SqlQueries.UpdateTicketStatusAndSeat(user.TicketId, toStatus, seatType)).run();
+    }
+}
 
 app.post(`${API_ROUTE}/book`, async (req, res) => {
   //Validation
@@ -70,11 +80,11 @@ app.post(`${API_ROUTE}/book`, async (req, res) => {
         const userAlreadyBooked = await getCountFromDb(
             SqlQueries.UserAlreadyBookedWithName(req.body.name));
 
-        // if(userAlreadyBooked>0){
-        //  res.status(400);
-        //  res.send("user Already booked a ticket");
-        //  return;
-        // }
+        if(userAlreadyBooked>0){
+         res.status(400);
+         res.send("user Already booked a ticket");
+         return;
+        }
 
       let confirmationTicketCount = await getCountFromDb(
         SqlQueries.CountOfStatusType("CNF")

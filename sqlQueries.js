@@ -1,11 +1,13 @@
 class SqlQueries {
   static CreateTicketTable =
-    `create table Tickets(TicketId TEXT primary key,
+    `CREATE TABLE Tickets(TicketId TEXT PRIMARY KEY,
     Name TEXT NOT NULL,
-    Age integer NOT NULL,Gender Text NOT NULL,
+    Age INTEGER NOT NULL,
+    Gender TEXT NOT NULL,
+    Status TEXT,
+    SeatType TEXT,
     Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    Status Text,
-    SeatType Text);`;
+);`;
 
   static CountOfRow=  `select COUNT(*) as count from TICKETS;`;
   
@@ -35,6 +37,12 @@ class SqlQueries {
   {
     return `update Tickets set Status='${status}', SeatType='${seatType}' where TicketId='${userId}';`;
   }
+
+  static GetOldestTicketIn(status)
+  {
+     return `select * from Tickets where Status='${status}' order by Timestamp asc limit 1;`;
+  }
+  
 
 
 
