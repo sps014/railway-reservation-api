@@ -7,7 +7,6 @@ const genderValidator = string().required().nonNullable().oneOf(['male','female'
 const BookingUserValidationSchema = object(
     {
         name: nameValidatorRule,
-        bookingUserName:nameValidatorRule,
         age: ageValidatorRule.max(100),
         gender: genderValidator,
         children:array().of(

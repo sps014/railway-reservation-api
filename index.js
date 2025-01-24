@@ -1,7 +1,7 @@
 import express from "express";
 import sqlite from "better-sqlite3";
 import { existsSync } from "node:fs";
-import { SqlQueries, Tables } from "./sqlQueries.js";
+import { SqlQueries } from "./sqlQueries.js";
 import { DbService } from "./dbService.js";
 import { BookingUserValidationSchema } from "./validationSchema.js";
 import sqlSanitizer from "sql-sanitizer";
@@ -50,7 +50,7 @@ app.post(`${API_ROUTE}/cancel/:ticketId`, async (req, res) =>
             await db.prepare(SqlQueries.DeleteUserById(ticketId)).run();
             await db.prepare(SqlQueries.DeleteTicket(Tables.WaitingTable,ticketId)).run();
         }
-        
+
 
 
     });
@@ -67,21 +67,23 @@ app.post(`${API_ROUTE}/book`, async (req, res) => {
     try {
 
         //if user already booked a ticket then return error
-        let userAlreadyBooked = await getCountFromDb(SqlQueries.UserAlreadyBooked(req.body.bookingUserName));
-        if(userAlreadyBooked>0){
-         res.status(400);
-         res.send("user Already booked a ticket");
-         return;
-        }
+        const userAlreadyBooked = await getCountFromDb(
+            SqlQueries.UserAlreadyBookedWithName(req.body.name));
+
+        // if(userAlreadyBooked>0){
+        //  res.status(400);
+        //  res.send("user Already booked a ticket");
+        //  return;
+        // }
 
       let confirmationTicketCount = await getCountFromDb(
-        SqlQueries.CountOfBookedUsers
+        SqlQueries.CountOfStatusType("CNF")
       );
       let racTicketCount = await getCountFromDb(
-        SqlQueries.CountOfRow(Tables.RacTable)
+        SqlQueries.CountOfStatusType("RAC")
       );
       let waitingTicketCount = await getCountFromDb(
-        SqlQueries.CountOfRow(Tables.WaitingTable)
+        SqlQueries.CountOfStatusType("WAIT")
       );
 
       // if confirmation ticket count is more than 63 and rac ticket count is more than 18
@@ -139,10 +141,9 @@ async function createUserDetails(
 
     let userId = randomUUID();
    await db
-    .prepare(SqlQueries.CreateUserInTable)
+    .prepare(SqlQueries.CreateTicketInTable)
     .run([
       userId,
-      req.body.bookingUserName,
       req.body.name,
       req.body.age,
       req.body.gender
@@ -168,36 +169,24 @@ async function createUserDetails(
 }
 
 async function handleBooking(param) {
-    let type = "";
+    let status = "";
     let seatType = "";
 
   if (param.confirmationTicketCount < 63) {
-    await db
-      .prepare(SqlQueries.CreateConfirmationTicketValueTable)
-      .run([
-        randomUUID(),
-        param.bookingForID,
-        seatType=await getSeatType(param, param.isWomenWithChildren || param.age > 60),
-      ]);
-      type = "CNF";
+    seatType= await getSeatType(param, param.isWomenWithChildren || param.age > 60);
+      status = "CNF";
   } else if (param.racTicketCount < 18) {
-    await db
-      .prepare(SqlQueries.CreateRacTicketValueTable)
-      .run([randomUUID(),param.bookingForID]);
-      type = "RAC";
+      status = "RAC";
       seatType = "sideLower";
   } else {
-    await db
-      .prepare(SqlQueries.CreateWaitingTicketValueTable)
-      .run([randomUUID(),param.bookingForID]);
-        type = "WAIT";
+        status = "WAIT";
         seatType="NA";
   }
 
-  await db.prepare(SqlQueries.UpdateUserStatus(param.bookingForID, type))
+  await db.prepare(SqlQueries.UpdateTicketStatusAndSeat(param.bookingForID, status,seatType))
   .run();
 
-  return {userId: param.bookingForID, type,seatType};
+  return {userId: param.bookingForID, type: status,seatType};
 }
 
 async function getSeatType(param, oldPriority = false) {
