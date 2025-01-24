@@ -21,6 +21,17 @@ class SqlQueries {
     return `select Count(*) as count from Users where UserId='${ticketId}';`;
   }
 
+  static GetUserById(ticketId) {
+    return `select * from Users where UserId='${ticketId}';`;
+  }
+  static DeleteUserById(ticketId) {
+    return `delete from Users where UserId='${ticketId}';`;
+  }
+
+  static DeleteTicket(tableName,ticketId) {
+    return `delete from $${tableName} where UserId='${ticketId}';`;
+  }
+
   static CountOfConfirmedSeatType(type) {
     return `select COUNT(*) as count from ${Tables.ConfirmTable} where SeatType='${type}';`;
   }
@@ -29,6 +40,8 @@ class SqlQueries {
   {
     return `update Users set Status='${status}' where UserId='${userId}';`;
   }
+
+
 
   static async CreateTables(db) {
     try {

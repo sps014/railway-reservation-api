@@ -32,8 +32,32 @@ app.get(`${API_ROUTE}/`, async (req, res) => {
 app.post(`${API_ROUTE}/cancel/:ticketId`, async (req, res) => 
 {
     let ticketId = req.params.ticketId;
-    let userAlreadyBooked = await getCountFromDb(SqlQueries.UserAlreadyBookedWithId(ticketId));
-    res.send(userAlreadyBooked>0);
+    let user = await readRowFromDb(SqlQueries.GetUserById(ticketId));
+    
+    if(user==null)
+    {
+        res.status(400);
+        res.send("Invalid ticket id");
+        return;
+    }
+
+    await db.transaction(async () =>
+    {
+
+        //if user was in waiting table then delete his data from waiting table
+        if(user.Status=="WAIT")
+        {
+            await db.prepare(SqlQueries.DeleteUserById(ticketId)).run();
+            await db.prepare(SqlQueries.DeleteTicket(Tables.WaitingTable,ticketId)).run();
+        }
+        
+
+
+    });
+
+    
+    console.log(userAlreadyBooked);
+    res.send(userAlreadyBooked!=null);
 });
 
 app.post(`${API_ROUTE}/book`, async (req, res) => {
@@ -217,21 +241,16 @@ async function validateBodyAsync(schema, value, res) {
   }
 }
 
-function readRowsFromDb(query) {
-  return new Promise((resolve, reject) => {
-    try {
-      let result = [];
-      db.all(query, (err, rows) => {
-        if (err) {
-          return reject(err);
-        }
-        result = rows;
-        resolve(result);
-      });
-    } catch (e) {
-      reject(e); // In case of unexpected errors
-    }
-  });
+async function readRowFromDb(query) {
+  try
+  {
+    return  await db.prepare(query).get();
+  }
+  catch(e)
+  {
+    console.warn("Error in reading row",e);
+    return null;
+  }
 }
 
 async function getCountFromDb(query) {
